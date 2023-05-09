@@ -1,0 +1,50 @@
+.wallet-form {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 0.5rem 1rem;
+}
+
+/* TODO: make a grid layout out of this list */
+.wallet-nft-list {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.wallet-nft-list > .wallet-nft {
+  margin-top: 1rem;
+  margin-right: 1rem;
+}
+
+.wallet-nft {
+  width: 120px;
+  height: 120px;
+  border-radius: 1rem;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.wallet-nft:hover {
+  filter: brightness(0.8)
+}
+
+.wallet-nft-name {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 100%;
+  padding: 0.5rem;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  background: linear-gradient(rgb(45 45 45 / 0%), rgb(45 45 45 / 25%), rgb(45 45 45));
+  color: white;
+  user-select: none;
+}
+
+.wallet-nft-image {
+  min-width: 100%;
+  min-height: 100%;
+}

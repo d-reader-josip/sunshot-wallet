@@ -1,0 +1,55 @@
+{
+  "name": "sunshot",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.23.0"
+  },
+  "publisher": "rebornix",
+  "activationEvents": [],
+  "main": "./build/ext-src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "sunshot.start",
+        "title": "UI",
+        "category": "Sunshot"
+      }
+    ]
+  },
+  "dependencies": {
+    "helius-sdk": "^1.0.5",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-query": "^3.39.3",
+    "terser": "^5.17.1",
+    "vscode": "^1.1.17",
+    "yarn": "^1.22.19"
+  },
+  "resolutions": {},
+  "scripts": {
+    "vscode:prepublish": "node ./scripts/build-non-split.js && tsc -p tsconfig.extension.json",
+    "postinstall": "node ./node_modules/vscode/bin/install",
+    "start": "react-scripts start",
+    "build": "node ./scripts/build-non-split.js && tsc -p tsconfig.extension.json",
+    "test": "react-scripts test --env=jsdom",
+    "eject": "react-scripts eject"
+  },
+  "devDependencies": {
+    "@metaplex-foundation/js": "^0.19.2",
+    "@solana/spl-token": "^0.3.7",
+    "@solana/web3.js": "^1.75.0",
+    "@types/jest": "^29.5.1",
+    "@types/node": "^20.1.0",
+    "@types/react": "^18.2.6",
+    "@types/react-dom": "^18.2.4",
+    "react-scripts": "^5.0.1",
+    "rewire": "^6.0.0",
+    "typescript": "4.9.5"
+  },
+  "browserslist": [
+    ">0.2%",
+    "not dead",
+    "not ie <= 11",
+    "not op_mini all"
+  ]
+}
