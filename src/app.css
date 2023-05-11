@@ -4,6 +4,10 @@
   padding: 0.5rem 1rem;
 }
 
+.wallet-form > button {
+  margin-bottom: 1rem;
+}
+
 /* TODO: make a grid layout out of this list */
 .wallet-nft-list {
   display: flex;

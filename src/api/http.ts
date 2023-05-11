@@ -2,8 +2,11 @@ import axios from "axios";
 
 const HELIUS_API_KEY = "daa6ad1c-8711-4157-8272-6d9897a1e2f4";
 
+const HELIUS_API: string = "https://api.helius.xyz";
+const HELIUS_DEV_API: string = "https://api-devnet.helius.xyz"; // does not work
+
 export const http = axios.create({
-  baseURL: "https://api.helius.xyz",
+  baseURL: HELIUS_API,
   params: { "api-key": HELIUS_API_KEY },
 });
 

@@ -1,13 +1,16 @@
 import { useFetchNfts } from "../api/helius";
 import { defaultGetNftsResponse } from "../models/getNftsResponse";
 
-const WalletNftList: React.FC = () => {
-  const { data: getNfts = defaultGetNftsResponse } = useFetchNfts(
-    "7aLBCrbn4jDNSxLLJYRRnKbkqA5cuaeaAzn74xS7eKPD"
-  );
+interface Props {
+  address: string;
+}
+
+const WalletNftList: React.FC<Props> = ({ address }) => {
+  const { data: getNfts = defaultGetNftsResponse } = useFetchNfts(address);
 
   return (
     <div className="wallet-nft-list">
+      mainnet-beta tokens:
       {getNfts.nfts.map((nft) => (
         <div className="wallet-nft" key={nft.tokenAddress}>
           <img
