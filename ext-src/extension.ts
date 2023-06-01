@@ -2,11 +2,138 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { ExtensionContext } from "vscode";
 import { Message, MessageType } from "../src/models/message";
+import {
+  Connection,
+  clusterApiUrl,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+} from "@solana/web3.js";
+import { Metaplex, keypairIdentity, sol } from "@metaplex-foundation/js";
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
+
+  
+  const privateKey = "[134,143,169,62,186,144,109,51,68,3,123,241,84,182,191,128,158,90,19,237,125,208,58,98,64,138,224,58,207,156,205,254,120,56,78,45,227,236,128,84,47,81,242,213,90,102,99,30,68,150,35,149,103,22,130,25,237,3,243,14,50,38,201,193]";
+  const privateKeyArray = Uint8Array.from(JSON.parse(privateKey));
+  const keypair = Keypair.fromSecretKey(privateKeyArray);
+
+  var selectedWalletPublicKey:PublicKey;
+  let m_statusBarItem: vscode.StatusBarItem;
+
+  const endpoint = clusterApiUrl("devnet");
+  const connection = new Connection(endpoint, "confirmed");
+  const metaplex = new Metaplex(connection).use(keypairIdentity(keypair));
+
+  // Create UI
   context.subscriptions.push(
     vscode.commands.registerCommand("sunshot.start", () => {
       WalletPanel.createOrShow(context);
+    })
+  );
+
+  // Create new wallet
+  context.subscriptions.push(
+    vscode.commands.registerCommand("sunshot.create", () => {
+      
+      const newKeypair = Keypair.generate();
+      const publicKey = newKeypair.publicKey;
+      const secretKey = newKeypair.secretKey;
+
+      const wsedit = new vscode.WorkspaceEdit();
+      if (!vscode.workspace.workspaceFolders) {
+        vscode.window.showInformationMessage("Open a folder/workspace first");
+        return;
+      }
+
+      // TODO: find better place to store wallets, not current workspace; maybe VS CODE app root: "vscode.env.appRoot"
+      const wsPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+      const filePath = vscode.Uri.file(wsPath + '/wallets/' + publicKey.toString() + '.txt');
+      wsedit.createFile(filePath, { ignoreIfExists: true });
+      vscode.workspace.applyEdit(wsedit);
+
+      setTimeout(() => {
+        // TODO: update it so it doesn't open text file while still update it
+        vscode.workspace.openTextDocument(filePath).then((a: vscode.TextDocument) => {
+          vscode.window.showTextDocument(a, 1, false).then(e => {
+              e.edit(edit => {
+                edit.insert(new vscode.Position(0, 0), publicKey.toString() + '\n' + secretKey.toString());
+              });
+              e.document.save();
+          });
+        }, (error: any) => {
+            console.error(error);
+            debugger;
+        });
+      }, 500);
+
+      // TODO: add new wallet to the list of existing ones for quickpick
+
+      vscode.window.showInformationMessage('Created wallet: ' + formatWallet(publicKey.toString()));
+
+      // Some wallet is already selected; no need to proceed and select new one
+      if (selectedWalletPublicKey) {
+        return;
+      }
+
+      selectedWalletPublicKey = publicKey;
+      
+      const selectCommand = 'sunshot.select';
+      context.subscriptions.push(vscode.commands.registerCommand(selectCommand, async () => 
+      {
+        // TODO: fetch all created wallets and pass to quickPick
+        const result = await vscode.window.showQuickPick(
+          ['wallet1wallet1', 'wallet2wallet2', 'wallet3wallet3'], {
+          placeHolder: 'Select a wallet',
+        });
+        
+        if (result) {
+          m_statusBarItem.text = "$(account) " + formatWallet(result.toString());
+        }
+      }));
+
+      m_statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 2);
+      m_statusBarItem.command = selectCommand;
+      context.subscriptions.push(m_statusBarItem);
+      m_statusBarItem.text = "$(account) " + formatWallet(selectedWalletPublicKey.toString());
+      m_statusBarItem.tooltip = "Currently selected wallet"
+      m_statusBarItem.show();
+    })
+  );
+
+  // Balance command
+  context.subscriptions.push(
+    vscode.commands.registerCommand("sunshot.balance", async () => {
+
+      if (!selectedWalletPublicKey) {
+        vscode.window.showInformationMessage("Wallet is not selected!");
+        return;
+      }
+
+      const balance = await metaplex.rpc().getBalance(selectedWalletPublicKey);
+      const balanceSOL = balance.basisPoints.toNumber() / LAMPORTS_PER_SOL;
+
+      vscode.window.showInformationMessage(String(formatWallet(selectedWalletPublicKey.toString()) + ' : ' + balanceSOL + " $SOL"));  
+    })
+  );
+
+  // Airdrop command
+  context.subscriptions.push(
+    vscode.commands.registerCommand("sunshot.airdrop", async () => {
+
+      if (!selectedWalletPublicKey) {
+        vscode.window.showInformationMessage("Wallet is not selected!");
+        return;
+      }
+
+      try {
+        await metaplex.rpc().airdrop(selectedWalletPublicKey, sol(2));
+        vscode.window.showInformationMessage(String("Successfully airdropped 2 $SOL to: " + formatWallet(selectedWalletPublicKey.toString()))); 
+      } catch (e) {
+        vscode.window.showInformationMessage(String("Failed to airdrop 2 $SOL: " + e));
+      }
+
+       
     })
   );
 }
@@ -151,3 +278,9 @@ function getNonce() {
   }
   return text;
 }
+
+function formatWallet(wallet: String)
+{
+  return String(wallet.slice(0, 4) + '....' + wallet.slice(-4));
+}
+
