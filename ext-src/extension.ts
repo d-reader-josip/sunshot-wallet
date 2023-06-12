@@ -2,28 +2,14 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { ExtensionContext } from "vscode";
 import { Message, MessageType } from "../src/models/message";
-import {
-  Connection,
-  clusterApiUrl,
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-} from "@solana/web3.js";
-import { Metaplex, keypairIdentity, sol } from "@metaplex-foundation/js";
+import { Controller } from "./controller";
+
 
 export async function activate(context: vscode.ExtensionContext) {
+  let m_walletStatusBar: vscode.StatusBarItem;
+  let m_clusterStatusBar: vscode.StatusBarItem;
 
-  
-  const privateKey = "[134,143,169,62,186,144,109,51,68,3,123,241,84,182,191,128,158,90,19,237,125,208,58,98,64,138,224,58,207,156,205,254,120,56,78,45,227,236,128,84,47,81,242,213,90,102,99,30,68,150,35,149,103,22,130,25,237,3,243,14,50,38,201,193]";
-  const privateKeyArray = Uint8Array.from(JSON.parse(privateKey));
-  const keypair = Keypair.fromSecretKey(privateKeyArray);
-
-  var selectedWalletPublicKey:PublicKey;
-  let m_statusBarItem: vscode.StatusBarItem;
-
-  const endpoint = clusterApiUrl("devnet");
-  const connection = new Connection(endpoint, "confirmed");
-  const metaplex = new Metaplex(connection).use(keypairIdentity(keypair));
+  var controller = new Controller();
 
   // Create UI
   context.subscriptions.push(
@@ -35,7 +21,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // Create new wallet
   context.subscriptions.push(
     vscode.commands.registerCommand("sunshot.create", () => {
-      
+      /*
       const newKeypair = Keypair.generate();
       const publicKey = newKeypair.publicKey;
       const secretKey = newKeypair.secretKey;
@@ -67,37 +53,62 @@ export async function activate(context: vscode.ExtensionContext) {
         });
       }, 500);
 
-      // TODO: add new wallet to the list of existing ones for quickpick
-
       vscode.window.showInformationMessage('Created wallet: ' + formatWallet(publicKey.toString()));
+      */
 
-      // Some wallet is already selected; no need to proceed and select new one
-      if (selectedWalletPublicKey) {
+      controller.generateNewWallet();
+
+      // TODO; make generateNewWallet return public key of newly generated wallet and output it
+
+      // Some wallet is already selected; no need to proceed and select new one or register commands again
+      if (controller.getAllPublicKeys().length > 1) {
         return;
       }
-
-      selectedWalletPublicKey = publicKey;
-      
+     
+      // register command for selecting wallet
       const selectCommand = 'sunshot.select';
-      context.subscriptions.push(vscode.commands.registerCommand(selectCommand, async () => 
-      {
-        // TODO: fetch all created wallets and pass to quickPick
+      context.subscriptions.push(vscode.commands.registerCommand(selectCommand, async () => {
+        const allGeneratedKeys = controller.getAllPublicKeys();
         const result = await vscode.window.showQuickPick(
-          ['wallet1wallet1', 'wallet2wallet2', 'wallet3wallet3'], {
+          allGeneratedKeys, {
           placeHolder: 'Select a wallet',
         });
         
         if (result) {
-          m_statusBarItem.text = "$(account) " + formatWallet(result.toString());
+          m_walletStatusBar.text = "$(account) " + formatWallet(result.toString());
+          controller.setCurrentWallet(result.toString());
         }
       }));
 
-      m_statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 2);
-      m_statusBarItem.command = selectCommand;
-      context.subscriptions.push(m_statusBarItem);
-      m_statusBarItem.text = "$(account) " + formatWallet(selectedWalletPublicKey.toString());
-      m_statusBarItem.tooltip = "Currently selected wallet"
-      m_statusBarItem.show();
+      // register command for changing cluster
+      const selectCommand2 = 'sunshot.change';
+      context.subscriptions.push(vscode.commands.registerCommand(selectCommand2, async () => {
+        const result = await vscode.window.showQuickPick(
+          ['devnet', 'testnet', 'mainnet-beta'], {
+          placeHolder: 'Select cluster',
+        });
+        
+        if (result) {
+          controller.setCluster(result.toString());
+          m_clusterStatusBar.text = "$(type-hierarchy) " + controller.getCluster();
+        }
+      }));
+
+      // create wallet status bar and bind "select wallet" command to it
+      m_walletStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 3);
+      m_walletStatusBar.command = selectCommand;
+      context.subscriptions.push(m_walletStatusBar);
+      m_walletStatusBar.text = "$(account) " + formatWallet(controller.getCurrentWallet().getPublicKey().toString());
+      m_walletStatusBar.tooltip = "Currently selected wallet"
+      m_walletStatusBar.show();
+
+      // create cluster status bar nd bind "change cluster" command to it
+      m_clusterStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 2);
+      m_clusterStatusBar.command = selectCommand2;
+      context.subscriptions.push(m_clusterStatusBar);
+      m_clusterStatusBar.text = "$(type-hierarchy) " + controller.getCluster();
+      m_clusterStatusBar.tooltip = "Currently selected cluster"
+      m_clusterStatusBar.show();
     })
   );
 
@@ -105,15 +116,14 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("sunshot.balance", async () => {
 
-      if (!selectedWalletPublicKey) {
+      if (controller.getCurrentWallet() == undefined) {
         vscode.window.showInformationMessage("Wallet is not selected!");
         return;
       }
 
-      const balance = await metaplex.rpc().getBalance(selectedWalletPublicKey);
-      const balanceSOL = balance.basisPoints.toNumber() / LAMPORTS_PER_SOL;
-
-      vscode.window.showInformationMessage(String(formatWallet(selectedWalletPublicKey.toString()) + ' : ' + balanceSOL + " $SOL"));  
+      controller.getBalance().then(result => {
+        vscode.window.showInformationMessage(String(formatWallet(controller.getCurrentWallet().getPublicKey().toString()) + ": [ " + result + " $SOL ]"));  
+      });
     })
   );
 
@@ -121,19 +131,19 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("sunshot.airdrop", async () => {
 
-      if (!selectedWalletPublicKey) {
+      if (controller.getCurrentWallet() == undefined) {
         vscode.window.showInformationMessage("Wallet is not selected!");
         return;
       }
 
-      try {
-        await metaplex.rpc().airdrop(selectedWalletPublicKey, sol(2));
-        vscode.window.showInformationMessage(String("Successfully airdropped 2 $SOL to: " + formatWallet(selectedWalletPublicKey.toString()))); 
-      } catch (e) {
-        vscode.window.showInformationMessage(String("Failed to airdrop 2 $SOL: " + e));
-      }
-
-       
+      controller.airdrop().then(result => {
+        if (result == 0) {
+          vscode.window.showInformationMessage(String("Successfully airdropped 2 $SOL to: " + formatWallet(controller.getCurrentWallet().getPublicKey().toString()))); 
+        }
+        else {
+          vscode.window.showInformationMessage(String(result));  
+        }
+      });     
     })
   );
 }

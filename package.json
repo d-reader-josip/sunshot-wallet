@@ -33,6 +33,11 @@
         "command": "sunshot.select",
         "title": "Select wallet",
         "category": "Sunshot"
+      },
+      {
+        "command": "sunshot.change",
+        "title": "Change cluster",
+        "category": "Sunshot"
       }
     ]
   },
