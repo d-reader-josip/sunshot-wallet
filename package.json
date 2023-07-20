@@ -13,6 +13,31 @@
         "command": "sunshot.start",
         "title": "UI",
         "category": "Sunshot"
+      },
+      {
+        "command": "sunshot.balance",
+        "title": "balance",
+        "category": "Sunshot"
+      },
+      {
+        "command": "sunshot.airdrop",
+        "title": "airdrop",
+        "category": "Sunshot"
+      },
+      {
+        "command": "sunshot.create",
+        "title": "Create wallet",
+        "category": "Sunshot"
+      },
+      {
+        "command": "sunshot.select",
+        "title": "Select wallet",
+        "category": "Sunshot"
+      },
+      {
+        "command": "sunshot.change",
+        "title": "Change cluster",
+        "category": "Sunshot"
       }
     ]
   },

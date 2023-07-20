@@ -2,11 +2,148 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { ExtensionContext } from "vscode";
 import { Message, MessageType } from "../src/models/message";
+import { Controller } from "./controller";
 
-export function activate(context: vscode.ExtensionContext) {
+
+export async function activate(context: vscode.ExtensionContext) {
+  let m_walletStatusBar: vscode.StatusBarItem;
+  let m_clusterStatusBar: vscode.StatusBarItem;
+
+  var controller = new Controller();
+
+  // Create UI
   context.subscriptions.push(
     vscode.commands.registerCommand("sunshot.start", () => {
       WalletPanel.createOrShow(context);
+    })
+  );
+
+  // Create new wallet
+  context.subscriptions.push(
+    vscode.commands.registerCommand("sunshot.create", () => {
+      /*
+      const newKeypair = Keypair.generate();
+      const publicKey = newKeypair.publicKey;
+      const secretKey = newKeypair.secretKey;
+
+      const wsedit = new vscode.WorkspaceEdit();
+      if (!vscode.workspace.workspaceFolders) {
+        vscode.window.showInformationMessage("Open a folder/workspace first");
+        return;
+      }
+
+      // TODO: find better place to store wallets, not current workspace; maybe VS CODE app root: "vscode.env.appRoot"
+      const wsPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+      const filePath = vscode.Uri.file(wsPath + '/wallets/' + publicKey.toString() + '.txt');
+      wsedit.createFile(filePath, { ignoreIfExists: true });
+      vscode.workspace.applyEdit(wsedit);
+
+      setTimeout(() => {
+        // TODO: update it so it doesn't open text file while still update it
+        vscode.workspace.openTextDocument(filePath).then((a: vscode.TextDocument) => {
+          vscode.window.showTextDocument(a, 1, false).then(e => {
+              e.edit(edit => {
+                edit.insert(new vscode.Position(0, 0), publicKey.toString() + '\n' + secretKey.toString());
+              });
+              e.document.save();
+          });
+        }, (error: any) => {
+            console.error(error);
+            debugger;
+        });
+      }, 500);
+
+      vscode.window.showInformationMessage('Created wallet: ' + formatWallet(publicKey.toString()));
+      */
+
+      controller.generateNewWallet();
+
+      // TODO; make generateNewWallet return public key of newly generated wallet and output it
+
+      // Some wallet is already selected; no need to proceed and select new one or register commands again
+      if (controller.getAllPublicKeys().length > 1) {
+        return;
+      }
+     
+      // register command for selecting wallet
+      const selectCommand = 'sunshot.select';
+      context.subscriptions.push(vscode.commands.registerCommand(selectCommand, async () => {
+        const allGeneratedKeys = controller.getAllPublicKeys();
+        const result = await vscode.window.showQuickPick(
+          allGeneratedKeys, {
+          placeHolder: 'Select a wallet',
+        });
+        
+        if (result) {
+          m_walletStatusBar.text = "$(account) " + formatWallet(result.toString());
+          controller.setCurrentWallet(result.toString());
+        }
+      }));
+
+      // register command for changing cluster
+      const selectCommand2 = 'sunshot.change';
+      context.subscriptions.push(vscode.commands.registerCommand(selectCommand2, async () => {
+        const result = await vscode.window.showQuickPick(
+          ['devnet', 'testnet', 'mainnet-beta'], {
+          placeHolder: 'Select cluster',
+        });
+        
+        if (result) {
+          controller.setCluster(result.toString());
+          m_clusterStatusBar.text = "$(type-hierarchy) " + controller.getCluster();
+        }
+      }));
+
+      // create wallet status bar and bind "select wallet" command to it
+      m_walletStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 3);
+      m_walletStatusBar.command = selectCommand;
+      context.subscriptions.push(m_walletStatusBar);
+      m_walletStatusBar.text = "$(account) " + formatWallet(controller.getCurrentWallet().getPublicKey().toString());
+      m_walletStatusBar.tooltip = "Currently selected wallet"
+      m_walletStatusBar.show();
+
+      // create cluster status bar nd bind "change cluster" command to it
+      m_clusterStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 2);
+      m_clusterStatusBar.command = selectCommand2;
+      context.subscriptions.push(m_clusterStatusBar);
+      m_clusterStatusBar.text = "$(type-hierarchy) " + controller.getCluster();
+      m_clusterStatusBar.tooltip = "Currently selected cluster"
+      m_clusterStatusBar.show();
+    })
+  );
+
+  // Balance command
+  context.subscriptions.push(
+    vscode.commands.registerCommand("sunshot.balance", async () => {
+
+      if (controller.getCurrentWallet() == undefined) {
+        vscode.window.showInformationMessage("Wallet is not selected!");
+        return;
+      }
+
+      controller.getBalance().then(result => {
+        vscode.window.showInformationMessage(String(formatWallet(controller.getCurrentWallet().getPublicKey().toString()) + ": [ " + result + " $SOL ]"));  
+      });
+    })
+  );
+
+  // Airdrop command
+  context.subscriptions.push(
+    vscode.commands.registerCommand("sunshot.airdrop", async () => {
+
+      if (controller.getCurrentWallet() == undefined) {
+        vscode.window.showInformationMessage("Wallet is not selected!");
+        return;
+      }
+
+      controller.airdrop().then(result => {
+        if (result == 0) {
+          vscode.window.showInformationMessage(String("Successfully airdropped 2 $SOL to: " + formatWallet(controller.getCurrentWallet().getPublicKey().toString()))); 
+        }
+        else {
+          vscode.window.showInformationMessage(String(result));  
+        }
+      });     
     })
   );
 }
@@ -151,3 +288,9 @@ function getNonce() {
   }
   return text;
 }
+
+function formatWallet(wallet: String)
+{
+  return String(wallet.slice(0, 4) + '....' + wallet.slice(-4));
+}
+
